@@ -2,13 +2,16 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Rocket Dodge Game</title>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      user-select: none; /* Mencegah seleksi teks saat disentuh cepat di HP */
+      -webkit-user-select: none;
+      touch-action: manipulation;
     }
     body {
       background-color: #0b0d17;
@@ -22,24 +25,28 @@
       overflow: hidden;
     }
     h1 {
-      margin-bottom: 10px;
-      font-size: 24px;
+      margin-bottom: 5px;
+      font-size: 20px;
       text-transform: uppercase;
       letter-spacing: 2px;
       color: #00d2ff;
     }
     #game-container {
       position: relative;
-      width: 400px;
-      height: 600px;
-      border: 3px solid #00d2ff;
-      border-radius: 10px;
+      width: 100%;
+      max-width: 400px;
+      height: 75vh;
+      max-height: 600px;
+      border: 2px solid #00d2ff;
+      border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
       background: radial-gradient(circle at bottom, #1b2735 0%, #090a0f 100%);
     }
     canvas {
       display: block;
+      width: 100%;
+      height: 100%;
     }
     #ui {
       position: absolute;
@@ -58,11 +65,11 @@
     }
     #level-up-banner {
       position: absolute;
-      top: 40%;
+      top: 35%;
       left: 0;
       width: 100%;
       text-align: center;
-      font-size: 32px;
+      font-size: 30px;
       font-weight: bold;
       color: #ffda79;
       text-shadow: 0 0 10px #ffb142;
@@ -101,7 +108,7 @@
     }
     button {
       margin-top: 15px;
-      padding: 10px 25px;
+      padding: 12px 30px;
       font-size: 16px;
       font-weight: bold;
       background: #00d2ff;
@@ -114,12 +121,29 @@
     button:hover {
       background: #3742fa;
       color: #fff;
-      transform: scale(1.05);
     }
-    .controls-hint {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #a4b0be;
+    /* Tombol Sentuh HP */
+    #mobile-controls {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 400px;
+      margin-top: 10px;
+      padding: 0 10px;
+    }
+    .touch-btn {
+      width: 48%;
+      padding: 15px 0;
+      font-size: 24px;
+      background: rgba(0, 210, 255, 0.2);
+      border: 1px solid #00d2ff;
+      color: white;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .touch-btn:active {
+      background: rgba(0, 210, 255, 0.6);
     }
   </style>
 </head>
@@ -145,7 +169,11 @@
     </div>
   </div>
 
-  <p class="controls-hint">Gunakan tombol ⬅️ dan ➡️ di keyboard untuk bergerak</p>
+  <!-- Tombol Khusus Layar Sentuh HP -->
+  <div id="mobile-controls">
+    <div class="touch-btn" id="btn-left">⬅️ KIRI</div>
+    <div class="touch-btn" id="btn-right">KANAN ➡️</div>
+  </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
@@ -175,7 +203,6 @@
     let asteroids = [];
     let stars = [];
 
-    // Buat latar belakang bintang
     for (let i = 0; i < 50; i++) {
       stars.push({
         x: Math.random() * canvas.width,
@@ -185,7 +212,7 @@
       });
     }
 
-    // Controls Keyboard
+    // 1. Kontrol Keyboard (Laptop/PC)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') rocket.dx = -rocket.speed;
       if (e.key === 'ArrowRight' || e.key === 'd') rocket.dx = rocket.speed;
@@ -194,6 +221,33 @@
     document.addEventListener('keyup', (e) => {
       if (['ArrowLeft', 'ArrowRight', 'a', 'd'].includes(e.key)) rocket.dx = 0;
     });
+
+    // 2. Kontrol Tombol Sentuh (HP)
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    const startLeft = (e) => { e.preventDefault(); rocket.dx = -rocket.speed; };
+    const startRight = (e) => { e.preventDefault(); rocket.dx = rocket.speed; };
+    const stopMove = (e) => { e.preventDefault(); rocket.dx = 0; };
+
+    btnLeft.addEventListener('touchstart', startLeft);
+    btnLeft.addEventListener('touchend', stopMove);
+    btnRight.addEventListener('touchstart', startRight);
+    btnRight.addEventListener('touchend', stopMove);
+
+    btnLeft.addEventListener('mousedown', startLeft);
+    btnLeft.addEventListener('mouseup', stopMove);
+    btnRight.addEventListener('mousedown', startRight);
+    btnRight.addEventListener('mouseup', stopMove);
+
+    // 3. Kontrol Usap Langsung pada Canvas (Touch Drag)
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const touchX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+      rocket.x = touchX - rocket.width / 2;
+    }, { passive: false });
 
     function drawRocket() {
       // Badan Roket
@@ -211,7 +265,7 @@
       ctx.arc(rocket.x + rocket.width / 2, rocket.y + 20, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Api Dorongan
+      // Api
       ctx.fillStyle = frameCount % 6 < 3 ? '#ff4757' : '#ffa502';
       ctx.beginPath();
       ctx.moveTo(rocket.x + 8, rocket.y + rocket.height);
@@ -248,8 +302,6 @@
     function triggerLevelUp() {
       level++;
       levelElement.textContent = level;
-      
-      // Tampilkan banner Naik Level
       levelUpBanner.style.display = 'block';
       setTimeout(() => {
         levelUpBanner.style.display = 'none';
@@ -261,12 +313,11 @@
 
       frameCount++;
 
-      // Gerakkan Roket
+      // Pergerakan Roket
       rocket.x += rocket.dx;
       if (rocket.x < 0) rocket.x = 0;
       if (rocket.x + rocket.width > canvas.width) rocket.x = canvas.width - rocket.width;
 
-      // Interval asteroid bertambah padat seiring naik level
       const spawnInterval = Math.max(12, 45 - (level * 4));
 
       if (frameCount % spawnInterval === 0) {
@@ -275,11 +326,10 @@
           x: Math.random() * (canvas.width - radius * 2) + radius,
           y: -radius,
           radius: radius,
-          speed: Math.random() * 2 + 2 + (level * 0.9) // Kecepatan tambah tinggi per level
+          speed: Math.random() * 2 + 2 + (level * 0.9)
         });
       }
 
-      // Update Posisi Asteroid
       for (let i = asteroids.length - 1; i >= 0; i--) {
         const a = asteroids[i];
         a.y += a.speed;
@@ -295,13 +345,11 @@
           endGame();
         }
 
-        // Hapus asteroid saat keluar layar & hitung skor/level
         if (a.y - a.radius > canvas.height) {
           asteroids.splice(i, 1);
           score++;
           scoreElement.textContent = score;
 
-          // Cek Naik Level setiap 10 poin
           if (score % 10 === 0) {
             triggerLevelUp();
           }
