@@ -51,6 +51,7 @@
       font-size: 18px;
       font-weight: bold;
       text-shadow: 1px 1px 2px #000;
+      z-index: 5;
     }
     .level-text {
       color: #ffda79;
@@ -58,19 +59,22 @@
     #level-up-banner {
       position: absolute;
       top: 40%;
+      left: 0;
       width: 100%;
       text-align: center;
-      font-size: 28px;
+      font-size: 32px;
       font-weight: bold;
       color: #ffda79;
       text-shadow: 0 0 10px #ffb142;
       display: none;
       pointer-events: none;
-      animation: pop 0.5s ease-out;
+      z-index: 10;
+      animation: pop 0.6s ease-out;
     }
     @keyframes pop {
       0% { transform: scale(0.5); opacity: 0; }
-      100% { transform: scale(1.2); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
     }
     #game-over-screen {
       position: absolute;
@@ -84,6 +88,7 @@
       align-items: center;
       justify-content: center;
       display: none;
+      z-index: 20;
     }
     #game-over-screen h2 {
       font-size: 32px;
@@ -170,7 +175,7 @@
     let asteroids = [];
     let stars = [];
 
-    // Latar belakang bintang
+    // Buat latar belakang bintang
     for (let i = 0; i < 50; i++) {
       stars.push({
         x: Math.random() * canvas.width,
@@ -180,7 +185,7 @@
       });
     }
 
-    // Input Controls
+    // Controls Keyboard
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') rocket.dx = -rocket.speed;
       if (e.key === 'ArrowRight' || e.key === 'd') rocket.dx = rocket.speed;
@@ -200,13 +205,13 @@
       ctx.closePath();
       ctx.fill();
 
-      // Jendela Roket
+      // Jendela
       ctx.fillStyle = '#00d2ff';
       ctx.beginPath();
       ctx.arc(rocket.x + rocket.width / 2, rocket.y + 20, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Api
+      // Api Dorongan
       ctx.fillStyle = frameCount % 6 < 3 ? '#ff4757' : '#ffa502';
       ctx.beginPath();
       ctx.moveTo(rocket.x + 8, rocket.y + rocket.height);
@@ -232,7 +237,7 @@
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
 
-        star.y += star.speed + (level * 0.2); // Bintang bergerak makin cepat saat level naik
+        star.y += star.speed + (level * 0.3);
         if (star.y > canvas.height) {
           star.y = 0;
           star.x = Math.random() * canvas.width;
@@ -240,7 +245,11 @@
       });
     }
 
-    function showLevelUpBanner() {
+    function triggerLevelUp() {
+      level++;
+      levelElement.textContent = level;
+      
+      // Tampilkan banner Naik Level
       levelUpBanner.style.display = 'block';
       setTimeout(() => {
         levelUpBanner.style.display = 'none';
@@ -252,13 +261,13 @@
 
       frameCount++;
 
-      // Pergerakan Roket
+      // Gerakkan Roket
       rocket.x += rocket.dx;
       if (rocket.x < 0) rocket.x = 0;
       if (rocket.x + rocket.width > canvas.width) rocket.x = canvas.width - rocket.width;
 
-      // Interval kemunculan asteroid bertambah sering seiring naik level
-      const spawnInterval = Math.max(15, 45 - (level * 3));
+      // Interval asteroid bertambah padat seiring naik level
+      const spawnInterval = Math.max(12, 45 - (level * 4));
 
       if (frameCount % spawnInterval === 0) {
         const radius = Math.random() * 15 + 10;
@@ -266,12 +275,11 @@
           x: Math.random() * (canvas.width - radius * 2) + radius,
           y: -radius,
           radius: radius,
-          // Kecepatan asteroid meningkat berdasarkan level
-          speed: Math.random() * 2 + 2 + (level * 0.8) 
+          speed: Math.random() * 2 + 2 + (level * 0.9) // Kecepatan tambah tinggi per level
         });
       }
 
-      // Update Asteroid
+      // Update Posisi Asteroid
       for (let i = asteroids.length - 1; i >= 0; i--) {
         const a = asteroids[i];
         a.y += a.speed;
@@ -287,17 +295,15 @@
           endGame();
         }
 
-        // Skor & Naik Level
+        // Hapus asteroid saat keluar layar & hitung skor/level
         if (a.y - a.radius > canvas.height) {
           asteroids.splice(i, 1);
           score++;
           scoreElement.textContent = score;
 
-          // Naik level setiap 10 poin
+          // Cek Naik Level setiap 10 poin
           if (score % 10 === 0) {
-            level++;
-            levelElement.textContent = level;
-            showLevelUpBanner();
+            triggerLevelUp();
           }
         }
       }
