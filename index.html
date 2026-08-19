@@ -45,9 +45,32 @@
       position: absolute;
       top: 15px;
       left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
       font-size: 18px;
       font-weight: bold;
       text-shadow: 1px 1px 2px #000;
+    }
+    .level-text {
+      color: #ffda79;
+    }
+    #level-up-banner {
+      position: absolute;
+      top: 40%;
+      width: 100%;
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: #ffda79;
+      text-shadow: 0 0 10px #ffb142;
+      display: none;
+      pointer-events: none;
+      animation: pop 0.5s ease-out;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1.2); opacity: 1; }
     }
     #game-over-screen {
       position: absolute;
@@ -69,9 +92,10 @@
     }
     #game-over-screen p {
       font-size: 18px;
-      margin-bottom: 20px;
+      margin-bottom: 8px;
     }
     button {
+      margin-top: 15px;
       padding: 10px 25px;
       font-size: 16px;
       font-weight: bold;
@@ -100,11 +124,18 @@
   
   <div id="game-container">
     <canvas id="gameCanvas" width="400" height="600"></canvas>
-    <div id="ui">Skor: <span id="score">0</span></div>
+    
+    <div id="ui">
+      <div>Skor: <span id="score">0</span></div>
+      <div class="level-text">Level: <span id="level">1</span></div>
+    </div>
+
+    <div id="level-up-banner">LEVEL UP! 🚀</div>
     
     <div id="game-over-screen">
       <h2>GAME OVER</h2>
       <p>Skor Akhir: <span id="final-score">0</span></p>
+      <p class="level-text">Level Tertinggi: <span id="final-level">1</span></p>
       <button onclick="resetGame()">Main Lagi</button>
     </div>
   </div>
@@ -115,11 +146,15 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreElement = document.getElementById('score');
+    const levelElement = document.getElementById('level');
     const finalScoreElement = document.getElementById('final-score');
+    const finalLevelElement = document.getElementById('final-level');
     const gameOverScreen = document.getElementById('game-over-screen');
+    const levelUpBanner = document.getElementById('level-up-banner');
 
     let gameActive = true;
     let score = 0;
+    let level = 1;
     let frameCount = 0;
 
     // Roket (Pemain)
@@ -132,11 +167,10 @@
       dx: 0
     };
 
-    // Rintangan (Asteroid) & Bintang Latar
     let asteroids = [];
     let stars = [];
 
-    // Buat latar belakang bintang
+    // Latar belakang bintang
     for (let i = 0; i < 50; i++) {
       stars.push({
         x: Math.random() * canvas.width,
@@ -146,7 +180,7 @@
       });
     }
 
-    // Input Keyboard
+    // Input Controls
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') rocket.dx = -rocket.speed;
       if (e.key === 'ArrowRight' || e.key === 'd') rocket.dx = rocket.speed;
@@ -156,7 +190,6 @@
       if (['ArrowLeft', 'ArrowRight', 'a', 'd'].includes(e.key)) rocket.dx = 0;
     });
 
-    // Menggambar Roket
     function drawRocket() {
       // Badan Roket
       ctx.fillStyle = '#f1f2f6';
@@ -173,7 +206,7 @@
       ctx.arc(rocket.x + rocket.width / 2, rocket.y + 20, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Api / Dorongan Roket
+      // Api
       ctx.fillStyle = frameCount % 6 < 3 ? '#ff4757' : '#ffa502';
       ctx.beginPath();
       ctx.moveTo(rocket.x + 8, rocket.y + rocket.height);
@@ -183,7 +216,6 @@
       ctx.fill();
     }
 
-    // Menggambar Asteroid
     function drawAsteroids() {
       ctx.fillStyle = '#747d8c';
       asteroids.forEach(asteroid => {
@@ -193,7 +225,6 @@
       });
     }
 
-    // Menggambar Bintang Latar
     function updateAndDrawStars() {
       ctx.fillStyle = '#ffffff';
       stars.forEach(star => {
@@ -201,7 +232,7 @@
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
 
-        star.y += star.speed;
+        star.y += star.speed + (level * 0.2); // Bintang bergerak makin cepat saat level naik
         if (star.y > canvas.height) {
           star.y = 0;
           star.x = Math.random() * canvas.width;
@@ -209,29 +240,38 @@
       });
     }
 
-    // Update Pergerakan & Logika
+    function showLevelUpBanner() {
+      levelUpBanner.style.display = 'block';
+      setTimeout(() => {
+        levelUpBanner.style.display = 'none';
+      }, 1200);
+    }
+
     function update() {
       if (!gameActive) return;
 
       frameCount++;
 
-      // Gerakkan roket
+      // Pergerakan Roket
       rocket.x += rocket.dx;
       if (rocket.x < 0) rocket.x = 0;
       if (rocket.x + rocket.width > canvas.width) rocket.x = canvas.width - rocket.width;
 
-      // Tambah Asteroid Baru secara berkala
-      if (frameCount % 40 === 0) {
+      // Interval kemunculan asteroid bertambah sering seiring naik level
+      const spawnInterval = Math.max(15, 45 - (level * 3));
+
+      if (frameCount % spawnInterval === 0) {
         const radius = Math.random() * 15 + 10;
         asteroids.push({
           x: Math.random() * (canvas.width - radius * 2) + radius,
           y: -radius,
           radius: radius,
-          speed: Math.random() * 3 + 2 + (score * 0.1) // Makin tinggi skor, makin cepat
+          // Kecepatan asteroid meningkat berdasarkan level
+          speed: Math.random() * 2 + 2 + (level * 0.8) 
         });
       }
 
-      // Update posisi Asteroid
+      // Update Asteroid
       for (let i = asteroids.length - 1; i >= 0; i--) {
         const a = asteroids[i];
         a.y += a.speed;
@@ -247,16 +287,22 @@
           endGame();
         }
 
-        // Hapus asteroid yang keluar layar dan tambah skor
+        // Skor & Naik Level
         if (a.y - a.radius > canvas.height) {
           asteroids.splice(i, 1);
           score++;
           scoreElement.textContent = score;
+
+          // Naik level setiap 10 poin
+          if (score % 10 === 0) {
+            level++;
+            levelElement.textContent = level;
+            showLevelUpBanner();
+          }
         }
       }
     }
 
-    // Render Semua Elemen
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       updateAndDrawStars();
@@ -264,7 +310,6 @@
       drawAsteroids();
     }
 
-    // Loop Utama Game
     function gameLoop() {
       update();
       render();
@@ -273,26 +318,26 @@
       }
     }
 
-    // Game Over
     function endGame() {
       gameActive = false;
       finalScoreElement.textContent = score;
+      finalLevelElement.textContent = level;
       gameOverScreen.style.display = 'flex';
     }
 
-    // Reset / Restart Game
     function resetGame() {
       score = 0;
+      level = 1;
       frameCount = 0;
       asteroids = [];
       rocket.x = canvas.width / 2 - 15;
       scoreElement.textContent = score;
+      levelElement.textContent = level;
       gameOverScreen.style.display = 'none';
       gameActive = true;
       gameLoop();
     }
 
-    // Jalankan Game
     gameLoop();
   </script>
 </body>
