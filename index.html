@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rocket Dodge Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #0b0d17;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin-bottom: 10px;
+      font-size: 24px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #00d2ff;
+    }
+    #game-container {
+      position: relative;
+      width: 400px;
+      height: 600px;
+      border: 3px solid #00d2ff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+      background: radial-gradient(circle at bottom, #1b2735 0%, #090a0f 100%);
+    }
+    canvas {
+      display: block;
+    }
+    #ui {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px #000;
+    }
+    #game-over-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      display: none;
+    }
+    #game-over-screen h2 {
+      font-size: 32px;
+      color: #ff4757;
+      margin-bottom: 10px;
+    }
+    #game-over-screen p {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 25px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #00d2ff;
+      color: #0b0d17;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      background: #3742fa;
+      color: #fff;
+      transform: scale(1.05);
+    }
+    .controls-hint {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #a4b0be;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚀 Rocket Dodge</h1>
+  
+  <div id="game-container">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="ui">Skor: <span id="score">0</span></div>
+    
+    <div id="game-over-screen">
+      <h2>GAME OVER</h2>
+      <p>Skor Akhir: <span id="final-score">0</span></p>
+      <button onclick="resetGame()">Main Lagi</button>
+    </div>
+  </div>
+
+  <p class="controls-hint">Gunakan tombol ⬅️ dan ➡️ di keyboard untuk bergerak</p>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const finalScoreElement = document.getElementById('final-score');
+    const gameOverScreen = document.getElementById('game-over-screen');
+
+    let gameActive = true;
+    let score = 0;
+    let frameCount = 0;
+
+    // Roket (Pemain)
+    const rocket = {
+      x: canvas.width / 2 - 15,
+      y: canvas.height - 70,
+      width: 30,
+      height: 50,
+      speed: 6,
+      dx: 0
+    };
+
+    // Rintangan (Asteroid) & Bintang Latar
+    let asteroids = [];
+    let stars = [];
+
+    // Buat latar belakang bintang
+    for (let i = 0; i < 50; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2,
+        speed: Math.random() * 2 + 0.5
+      });
+    }
+
+    // Input Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') rocket.dx = -rocket.speed;
+      if (e.key === 'ArrowRight' || e.key === 'd') rocket.dx = rocket.speed;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'a', 'd'].includes(e.key)) rocket.dx = 0;
+    });
+
+    // Menggambar Roket
+    function drawRocket() {
+      // Badan Roket
+      ctx.fillStyle = '#f1f2f6';
+      ctx.beginPath();
+      ctx.moveTo(rocket.x + rocket.width / 2, rocket.y);
+      ctx.lineTo(rocket.x + rocket.width, rocket.y + rocket.height);
+      ctx.lineTo(rocket.x, rocket.y + rocket.height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Jendela Roket
+      ctx.fillStyle = '#00d2ff';
+      ctx.beginPath();
+      ctx.arc(rocket.x + rocket.width / 2, rocket.y + 20, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Api / Dorongan Roket
+      ctx.fillStyle = frameCount % 6 < 3 ? '#ff4757' : '#ffa502';
+      ctx.beginPath();
+      ctx.moveTo(rocket.x + 8, rocket.y + rocket.height);
+      ctx.lineTo(rocket.x + rocket.width / 2, rocket.y + rocket.height + 15);
+      ctx.lineTo(rocket.x + rocket.width - 8, rocket.y + rocket.height);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Menggambar Asteroid
+    function drawAsteroids() {
+      ctx.fillStyle = '#747d8c';
+      asteroids.forEach(asteroid => {
+        ctx.beginPath();
+        ctx.arc(asteroid.x, asteroid.y, asteroid.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // Menggambar Bintang Latar
+    function updateAndDrawStars() {
+      ctx.fillStyle = '#ffffff';
+      stars.forEach(star => {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        star.y += star.speed;
+        if (star.y > canvas.height) {
+          star.y = 0;
+          star.x = Math.random() * canvas.width;
+        }
+      });
+    }
+
+    // Update Pergerakan & Logika
+    function update() {
+      if (!gameActive) return;
+
+      frameCount++;
+
+      // Gerakkan roket
+      rocket.x += rocket.dx;
+      if (rocket.x < 0) rocket.x = 0;
+      if (rocket.x + rocket.width > canvas.width) rocket.x = canvas.width - rocket.width;
+
+      // Tambah Asteroid Baru secara berkala
+      if (frameCount % 40 === 0) {
+        const radius = Math.random() * 15 + 10;
+        asteroids.push({
+          x: Math.random() * (canvas.width - radius * 2) + radius,
+          y: -radius,
+          radius: radius,
+          speed: Math.random() * 3 + 2 + (score * 0.1) // Makin tinggi skor, makin cepat
+        });
+      }
+
+      // Update posisi Asteroid
+      for (let i = asteroids.length - 1; i >= 0; i--) {
+        const a = asteroids[i];
+        a.y += a.speed;
+
+        // Deteksi Tabrakan
+        const closestX = Math.max(rocket.x, Math.min(a.x, rocket.x + rocket.width));
+        const closestY = Math.max(rocket.y, Math.min(a.y, rocket.y + rocket.height));
+        const distanceX = a.x - closestX;
+        const distanceY = a.y - closestY;
+        const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+
+        if (distance < a.radius) {
+          endGame();
+        }
+
+        // Hapus asteroid yang keluar layar dan tambah skor
+        if (a.y - a.radius > canvas.height) {
+          asteroids.splice(i, 1);
+          score++;
+          scoreElement.textContent = score;
+        }
+      }
+    }
+
+    // Render Semua Elemen
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updateAndDrawStars();
+      drawRocket();
+      drawAsteroids();
+    }
+
+    // Loop Utama Game
+    function gameLoop() {
+      update();
+      render();
+      if (gameActive) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // Game Over
+    function endGame() {
+      gameActive = false;
+      finalScoreElement.textContent = score;
+      gameOverScreen.style.display = 'flex';
+    }
+
+    // Reset / Restart Game
+    function resetGame() {
+      score = 0;
+      frameCount = 0;
+      asteroids = [];
+      rocket.x = canvas.width / 2 - 15;
+      scoreElement.textContent = score;
+      gameOverScreen.style.display = 'none';
+      gameActive = true;
+      gameLoop();
+    }
+
+    // Jalankan Game
+    gameLoop();
+  </script>
+</body>
+</html>
